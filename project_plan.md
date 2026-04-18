@@ -74,13 +74,17 @@ The model captures baseball's natural hierarchy: seasons contain games, games co
 ### Phase 3 — Scoresheet Data Ingestion
 **Goal:** Streamline data entry via scoresheet photo upload with OCR and a human review step.
 
+**Approach:** The scoresheet is a printed book — identical layout on every page. This enables **zone-based OCR**: stat fields are always at the same coordinates, so the system reads handwritten values at fixed regions rather than parsing the document structure dynamically. This is more reliable and less sensitive to handwriting variation than general-purpose OCR. Admin corrections feed back as labeled data, enabling future model fine-tuning on the team's specific scoresheet style.
+
 | Task | Description | Notes |
 |---|---|---|
-| Photo Upload | Admin can upload a photo of the paper scoresheet to Supabase Storage. | Accept JPG, PNG, HEIC |
-| OCR Processing | Send image to Google Vision or AWS Textract; parse structured stat fields. | Pilot with 5 known scoresheets first |
-| Review & Edit UI | Present OCR output as a pre-filled editable form — admin corrects errors before saving. | Reuses the Phase 1 entry form |
-| Approval Workflow | Stats only commit to the DB after admin review and confirmation. | No auto-commit from raw OCR |
-| Scoresheet Archive | Store original photos alongside the game record for reference. | Supabase Storage bucket |
+| Photo Upload | Admin uploads a photo of the paper scoresheet to Supabase Storage. | Accept JPG, PNG, HEIC. Scanning app recommended for image quality consistency. |
+| Zone Mapping | Define pixel coordinate regions for each stat field based on the printed template. | One-time setup; reused for every scoresheet since layout never changes. |
+| OCR Processing | Send image to Google Vision or AWS Textract; extract values from mapped zones. | Pilot with 5 known scoresheets first. Focus on batting totals columns (right side) and fielding columns (left side) — not the inning-by-inning grid. |
+| Review & Edit UI | Present OCR output as a pre-filled editable form — admin corrects errors before saving. | Reuses the Phase 1 entry form. Corrections are stored as labeled data for future fine-tuning. |
+| Approval Workflow | Stats only commit to the DB after admin review and confirmation. | No auto-commit from raw OCR. |
+| Scoresheet Archive | Store original photos alongside the game record for reference. | Supabase Storage bucket. |
+| Future Fine-Tuning | Accumulate corrected scoresheets as training data; fine-tune OCR model on team's handwriting style. | Deferred — implement after ~50 corrected sheets are collected. |
 
 ### Phase 4 — Expansion & Polish
 **Goal:** Extend the app to support a full recreational league and richer features.
@@ -107,14 +111,17 @@ The model captures baseball's natural hierarchy: seasons contain games, games co
 
 ## 6. Open Decisions
 
-| Decision | Notes |
-|---|---|
-| Data entry method | Manual form only at first, or design with OCR in mind from day one? (Recommended: design for future OCR from the start.) |
-| Fielding stats | Deferred post-Phase 1. Requires dedicated scorekeeper; incomplete data is worse than none. |
-| Designated Hitter | Does your rec league use a DH rule? Affects batting line assignment. |
-| Scoring conventions | Document your team's scoresheet shorthand before building the entry form. |
-| Domain / branding | What will the site be called? Custom domain on Vercel? |
-| Player onboarding | How will other players get access when player accounts roll out in Phase 4? |
+| Decision | Status | Notes |
+|---|---|---|
+| Data entry method | ✅ Decided | Two routes: (1) photo upload → zone-based OCR → admin review/correct → save; (2) manual player-by-player entry as fallback. Both share the same review UI. |
+| Scoresheet format | ✅ Decided | Printed scoresheet book — identical layout every page, filled in by pen. Enables zone-based OCR (fixed coordinate regions per stat field). Two sheets per game (one per team). |
+| Opponent data | ✅ Decided | Opponent final score stored with every game record. Full opponent batting lines are optional and deferred. |
+| Image capture | ✅ Decided | Phone camera. Scanning app (e.g. Adobe Scan, Apple Scanner) recommended for consistent image quality. |
+| Fielding stats | ✅ Decided | Deferred post-Phase 1. Requires dedicated scorekeeper; incomplete data is worse than none. |
+| Designated Hitter | ⬜ Open | Does your rec league use a DH rule? Affects batting line assignment. |
+| Scoring conventions | ⬜ Open | Document your team's scoresheet shorthand before building the entry form. |
+| Domain / branding | ⬜ Open | What will the site be called? Custom domain on Vercel? |
+| Player onboarding | ⬜ Open | How will other players get access when player accounts roll out in Phase 4? |
 
 ---
 
@@ -125,6 +132,7 @@ The model captures baseball's natural hierarchy: seasons contain games, games co
 | 0.1 | April 2026 | Initial project plan — pre-development. Tech stack, data model, and four-phase roadmap established. |
 | 0.2 | April 2026 | Backend switched from Python · FastAPI to Node.js · Hono. Consolidates stack to a single language; Hono runs natively on Vercel, eliminating need for a separate API host. |
 | 0.2 | April 2026 | Data model confirmed. Batting lines updated to include HBP, CS. Pitching lines updated to include HBP and nullable pitch count. Fielding events deferred post-Phase 1. |
+| 0.3 | April 2026 | Data entry approach decided. Two-route system: photo upload (zone-based OCR) as primary, manual player-by-player entry as fallback. Both share the same review UI. Phase 3 updated to reflect zone-based extraction strategy. Open decisions table updated. |
 
 ---
 
