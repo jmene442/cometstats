@@ -112,6 +112,80 @@ games.post('/', async (c) => {
   return c.json({ game: newGame, game_id: gameId }, 201)
 })
 
+// ── PATCH /api/games/:id ───────────────────────────────────────────────────────
+// Updates game metadata and replaces all batting/pitching lines.
+//
+// Request body shape (all keys optional — omit what you don't want to change):
+// {
+//   game?: Partial<GameInsert>,
+//   batting_lines?: BattingLineInsert[],   // replaces all existing batting lines
+//   pitching_lines?: PitchingLineInsert[], // replaces all existing pitching lines
+// }
+//
+// Batting and pitching lines are replaced wholesale (delete-then-reinsert) so
+// that removed players are cleaned up automatically — no partial-update edge cases.
+games.patch('/:id', async (c) => {
+  const supabase = createAdminClient()
+  const id = c.req.param('id')
+
+  const body = await c.req.json<{
+    game?: Partial<GameInsert>
+    batting_lines?: Omit<BattingLineInsert, 'game_id'>[]
+    pitching_lines?: Omit<PitchingLineInsert, 'game_id'>[]
+  }>()
+
+  // 1. Update game metadata (if provided)
+  if (body.game && Object.keys(body.game).length > 0) {
+    const { error } = await supabase
+      .from('games')
+      .update(body.game)
+      .eq('id', id)
+    if (error) return c.json({ error: error.message }, 400)
+  }
+
+  // 2. Replace batting lines (if provided)
+  if (body.batting_lines !== undefined) {
+    const { error: delError } = await supabase
+      .from('batting_lines')
+      .delete()
+      .eq('game_id', id)
+    if (delError) return c.json({ error: `Deleting batting lines: ${delError.message}` }, 400)
+
+    if (body.batting_lines.length > 0) {
+      const { error: insError } = await supabase
+        .from('batting_lines')
+        .insert(body.batting_lines.map((bl) => ({ ...bl, game_id: id })))
+      if (insError) return c.json({ error: `Inserting batting lines: ${insError.message}` }, 400)
+    }
+  }
+
+  // 3. Replace pitching lines (if provided)
+  if (body.pitching_lines !== undefined) {
+    const { error: delError } = await supabase
+      .from('pitching_lines')
+      .delete()
+      .eq('game_id', id)
+    if (delError) return c.json({ error: `Deleting pitching lines: ${delError.message}` }, 400)
+
+    if (body.pitching_lines.length > 0) {
+      const { error: insError } = await supabase
+        .from('pitching_lines')
+        .insert(body.pitching_lines.map((pl) => ({ ...pl, game_id: id })))
+      if (insError) return c.json({ error: `Inserting pitching lines: ${insError.message}` }, 400)
+    }
+  }
+
+  // Return the updated game
+  const { data: updatedGame, error: fetchError } = await supabase
+    .from('games')
+    .select('*, seasons(year, league_name)')
+    .eq('id', id)
+    .single()
+
+  if (fetchError) return c.json({ error: fetchError.message }, 500)
+  return c.json(updatedGame)
+})
+
 // DELETE /api/games/:id — remove a game and all its lines (cascade handles lines)
 games.delete('/:id', async (c) => {
   const supabase = createAdminClient()

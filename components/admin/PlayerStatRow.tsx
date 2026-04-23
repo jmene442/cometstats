@@ -3,7 +3,7 @@
 // A single row in the batting or pitching stat entry table.
 // Renders as a <tr> — must be used inside a <tbody>.
 
-import type { Player } from '@/lib/types/database'
+import type { Player, BattingLine, PitchingLine } from '@/lib/types/database'
 
 // ── Batting row ───────────────────────────────────────────────────────────────
 
@@ -11,17 +11,19 @@ interface BattingRowProps {
   player: Player
   index: number
   onRemove: (playerId: string) => void
+  initialValues?: Partial<BattingLine>
 }
 
-export function BattingStatRow({ player, index, onRemove }: BattingRowProps) {
+export function BattingStatRow({ player, index, onRemove, initialValues }: BattingRowProps) {
   const n = (field: string) => `batting[${index}][${field}]`
-  const defaultProps = {
-    type: 'number',
+  const iv = initialValues ?? {}
+  const inputProps = (field: keyof BattingLine) => ({
+    type: 'number' as const,
     min: '0',
-    defaultValue: '0',
+    defaultValue: String(iv[field] ?? 0),
     className: 'form-input',
     style: { width: '52px', padding: '4px 6px', textAlign: 'center' as const },
-  }
+  })
 
   return (
     <tr>
@@ -30,18 +32,18 @@ export function BattingStatRow({ player, index, onRemove }: BattingRowProps) {
         <span style={{ fontWeight: 600 }}>#{player.number ?? '—'}</span>{' '}
         <span>{player.name}</span>
       </td>
-      <td><input {...defaultProps} name={n('ab')} /></td>
-      <td><input {...defaultProps} name={n('h')} /></td>
-      <td><input {...defaultProps} name={n('doubles')} /></td>
-      <td><input {...defaultProps} name={n('triples')} /></td>
-      <td><input {...defaultProps} name={n('hr')} /></td>
-      <td><input {...defaultProps} name={n('rbi')} /></td>
-      <td><input {...defaultProps} name={n('bb')} /></td>
-      <td><input {...defaultProps} name={n('hbp')} /></td>
-      <td><input {...defaultProps} name={n('so')} /></td>
-      <td><input {...defaultProps} name={n('r')} /></td>
-      <td><input {...defaultProps} name={n('sb')} /></td>
-      <td><input {...defaultProps} name={n('cs')} /></td>
+      <td><input {...inputProps('ab')} name={n('ab')} /></td>
+      <td><input {...inputProps('h')} name={n('h')} /></td>
+      <td><input {...inputProps('doubles')} name={n('doubles')} /></td>
+      <td><input {...inputProps('triples')} name={n('triples')} /></td>
+      <td><input {...inputProps('hr')} name={n('hr')} /></td>
+      <td><input {...inputProps('rbi')} name={n('rbi')} /></td>
+      <td><input {...inputProps('bb')} name={n('bb')} /></td>
+      <td><input {...inputProps('hbp')} name={n('hbp')} /></td>
+      <td><input {...inputProps('so')} name={n('so')} /></td>
+      <td><input {...inputProps('r')} name={n('r')} /></td>
+      <td><input {...inputProps('sb')} name={n('sb')} /></td>
+      <td><input {...inputProps('cs')} name={n('cs')} /></td>
       <td>
         <button
           type="button"
@@ -69,17 +71,19 @@ interface PitchingRowProps {
   player: Player
   index: number
   onRemove: (playerId: string) => void
+  initialValues?: Partial<PitchingLine>
 }
 
-export function PitchingStatRow({ player, index, onRemove }: PitchingRowProps) {
+export function PitchingStatRow({ player, index, onRemove, initialValues }: PitchingRowProps) {
   const n = (field: string) => `pitching[${index}][${field}]`
-  const defaultProps = {
-    type: 'number',
+  const iv = initialValues ?? {}
+  const inputProps = (field: keyof PitchingLine) => ({
+    type: 'number' as const,
     min: '0',
-    defaultValue: '0',
+    defaultValue: String(iv[field] ?? 0),
     className: 'form-input',
     style: { width: '52px', padding: '4px 6px', textAlign: 'center' as const },
-  }
+  })
 
   return (
     <tr>
@@ -95,20 +99,21 @@ export function PitchingStatRow({ player, index, onRemove }: PitchingRowProps) {
           name={n('ip')}
           min="0"
           step="0.1"
-          defaultValue="0"
+          defaultValue={String(iv.ip ?? 0)}
           className="form-input"
           style={{ width: '60px', padding: '4px 6px', textAlign: 'center' }}
         />
       </td>
-      <td><input {...defaultProps} name={n('h')} /></td>
-      <td><input {...defaultProps} name={n('er')} /></td>
-      <td><input {...defaultProps} name={n('bb')} /></td>
-      <td><input {...defaultProps} name={n('so')} /></td>
-      <td><input {...defaultProps} name={n('hbp')} /></td>
+      <td><input {...inputProps('h')} name={n('h')} /></td>
+      <td><input {...inputProps('er')} name={n('er')} /></td>
+      <td><input {...inputProps('bb')} name={n('bb')} /></td>
+      <td><input {...inputProps('so')} name={n('so')} /></td>
+      <td><input {...inputProps('hbp')} name={n('hbp')} /></td>
       {/* Outcome: W / L / S / ND */}
       <td>
         <select
           name={n('outcome')}
+          defaultValue={iv.outcome ?? ''}
           className="form-select"
           style={{ width: '60px', padding: '4px 6px' }}
         >
@@ -125,6 +130,7 @@ export function PitchingStatRow({ player, index, onRemove }: PitchingRowProps) {
           type="number"
           name={n('pc')}
           min="0"
+          defaultValue={iv.pc != null ? String(iv.pc) : ''}
           placeholder="—"
           className="form-input"
           style={{ width: '52px', padding: '4px 6px', textAlign: 'center' }}

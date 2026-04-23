@@ -1,13 +1,21 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { BattingStatRow, PitchingStatRow } from './PlayerStatRow'
-import type { Player, Season } from '@/lib/types/database'
+import type { Player, Season, Game, BattingLine, PitchingLine } from '@/lib/types/database'
+
+interface InitialData {
+  game: Game
+  batting_lines: BattingLine[]
+  pitching_lines: PitchingLine[]
+}
 
 interface Props {
   players: Player[]
   seasons: Season[]
+  /** When provided, the form operates in edit mode (PATCH) instead of create mode (POST). */
+  initialData?: InitialData
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -63,11 +71,37 @@ function parseStatRows(
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function GameEntryForm({ players, seasons }: Props) {
-  const router = useRouter()
+export default function GameEntryForm({ players, seasons, initialData }: Props) {
+  const router  = useRouter()
+  const isEdit  = !!initialData
+  const gameId  = initialData?.game.id
 
-  const [battingPlayers, setBattingPlayers]   = useState<Player[]>([])
-  const [pitchingPlayers, setPitchingPlayers] = useState<Player[]>([])
+  // Pre-populate player lists from initialData when editing
+  const [battingPlayers, setBattingPlayers] = useState<Player[]>(() => {
+    if (!initialData) return []
+    return initialData.batting_lines
+      .map((bl) => players.find((p) => p.id === bl.player_id))
+      .filter(Boolean) as Player[]
+  })
+
+  const [pitchingPlayers, setPitchingPlayers] = useState<Player[]>(() => {
+    if (!initialData) return []
+    return initialData.pitching_lines
+      .map((pl) => players.find((p) => p.id === pl.player_id))
+      .filter(Boolean) as Player[]
+  })
+
+  // Fast lookup: player_id → existing line data (for pre-filling stat inputs)
+  const battingInitValues = useMemo(() => {
+    if (!initialData) return {} as Record<string, BattingLine>
+    return Object.fromEntries(initialData.batting_lines.map((bl) => [bl.player_id, bl]))
+  }, [initialData])
+
+  const pitchingInitValues = useMemo(() => {
+    if (!initialData) return {} as Record<string, PitchingLine>
+    return Object.fromEntries(initialData.pitching_lines.map((pl) => [pl.player_id, pl]))
+  }, [initialData])
+
   const [submitting, setSubmitting] = useState(false)
   const [error, setError]           = useState<string | null>(null)
   const [success, setSuccess]       = useState(false)
@@ -123,8 +157,11 @@ export default function GameEntryForm({ players, seasons }: Props) {
     }
 
     try {
-      const res = await fetch('/api/games', {
-        method: 'POST',
+      const url    = isEdit ? `/api/games/${gameId}` : '/api/games'
+      const method = isEdit ? 'PATCH' : 'POST'
+
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
@@ -145,10 +182,12 @@ export default function GameEntryForm({ players, seasons }: Props) {
   if (success) {
     return (
       <div className="alert alert-success" style={{ textAlign: 'center', padding: '2rem' }}>
-        ✅ Game saved! Redirecting to dashboard…
+        ✅ Game {isEdit ? 'updated' : 'saved'}! Redirecting to dashboard…
       </div>
     )
   }
+
+  const ig = initialData?.game
 
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -156,7 +195,9 @@ export default function GameEntryForm({ players, seasons }: Props) {
 
       {/* ── Game Info ── */}
       <section className="card">
-        <h2 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1rem' }}>Game Info</h2>
+        <h2 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1rem' }}>
+          {isEdit ? 'Edit Game' : 'Game Info'}
+        </h2>
         <div
           style={{
             display: 'grid',
@@ -167,7 +208,13 @@ export default function GameEntryForm({ players, seasons }: Props) {
           {/* Season */}
           <div className="form-group">
             <label className="form-label" htmlFor="season_id">Season</label>
-            <select id="season_id" name="season_id" className="form-select" required>
+            <select
+              id="season_id"
+              name="season_id"
+              className="form-select"
+              required
+              defaultValue={ig?.season_id ?? ''}
+            >
               <option value="">— select —</option>
               {seasons.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -186,7 +233,7 @@ export default function GameEntryForm({ players, seasons }: Props) {
               type="date"
               required
               className="form-input"
-              defaultValue={new Date().toISOString().split('T')[0]}
+              defaultValue={ig?.date ?? new Date().toISOString().split('T')[0]}
             />
           </div>
 
@@ -200,13 +247,20 @@ export default function GameEntryForm({ players, seasons }: Props) {
               required
               className="form-input"
               placeholder="Opponent team name"
+              defaultValue={ig?.opponent ?? ''}
             />
           </div>
 
           {/* Home / Away */}
           <div className="form-group">
             <label className="form-label" htmlFor="home_away">Home / Away</label>
-            <select id="home_away" name="home_away" className="form-select" required>
+            <select
+              id="home_away"
+              name="home_away"
+              className="form-select"
+              required
+              defaultValue={ig?.home_away ?? 'home'}
+            >
               <option value="home">Home</option>
               <option value="away">Away</option>
             </select>
@@ -222,7 +276,7 @@ export default function GameEntryForm({ players, seasons }: Props) {
               min="0"
               required
               className="form-input"
-              defaultValue={0}
+              defaultValue={ig?.our_score ?? 0}
             />
           </div>
 
@@ -236,7 +290,7 @@ export default function GameEntryForm({ players, seasons }: Props) {
               min="0"
               required
               className="form-input"
-              defaultValue={0}
+              defaultValue={ig?.opponent_score ?? 0}
             />
           </div>
         </div>
@@ -251,6 +305,7 @@ export default function GameEntryForm({ players, seasons }: Props) {
             className="form-input"
             placeholder="Rain delay, notable plays, etc."
             style={{ resize: 'vertical', fontFamily: 'inherit' }}
+            defaultValue={ig?.notes ?? ''}
           />
         </div>
       </section>
@@ -321,6 +376,7 @@ export default function GameEntryForm({ players, seasons }: Props) {
                     player={player}
                     index={i}
                     onRemove={removeBatter}
+                    initialValues={battingInitValues[player.id]}
                   />
                 ))}
               </tbody>
@@ -390,6 +446,7 @@ export default function GameEntryForm({ players, seasons }: Props) {
                     player={player}
                     index={i}
                     onRemove={removePitcher}
+                    initialValues={pitchingInitValues[player.id]}
                   />
                 ))}
               </tbody>
@@ -404,7 +461,7 @@ export default function GameEntryForm({ players, seasons }: Props) {
           Cancel
         </a>
         <button type="submit" className="btn btn-primary" disabled={submitting}>
-          {submitting ? 'Saving…' : 'Save Game'}
+          {submitting ? 'Saving…' : isEdit ? 'Save Changes' : 'Save Game'}
         </button>
       </div>
     </form>
