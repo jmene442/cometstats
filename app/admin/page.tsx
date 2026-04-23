@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 
+
 export const metadata: Metadata = { title: 'Admin Dashboard' }
 
 export default async function AdminDashboardPage() {
@@ -71,6 +72,7 @@ export default async function AdminDashboardPage() {
                 <th>H/A</th>
                 <th className="num">Score</th>
                 <th className="num">Result</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -104,6 +106,18 @@ export default async function AdminDashboardPage() {
                     >
                       {game.result ?? '—'}
                     </span>
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <Link
+                      href={`/admin/games/${game.id}/edit`}
+                      style={{
+                        color: 'var(--color-primary)',
+                        fontSize: '0.8rem',
+                        textDecoration: 'none',
+                      }}
+                    >
+                      Edit
+                    </Link>
                   </td>
                 </tr>
               ))}
