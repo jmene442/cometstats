@@ -24,7 +24,8 @@ export default async function EditGamePage({ params }: Props) {
 
   if (gameResult.error || !gameResult.data) notFound()
 
-  const game = gameResult.data
+  // Non-null assertion: TypeScript can't infer that notFound() always throws
+  const game = gameResult.data!
   const players = playersResult.data ?? []
   const seasons = seasonsResult.data ?? []
 
